@@ -60,7 +60,6 @@ function App() {
     event.preventDefault();
     if (!draggedWorkoutId) return;
 
-    // Use the same helper as the button click
     addWorkoutToSession(draggedWorkoutId);
     setDraggedWorkoutId(null);
   };
@@ -87,7 +86,7 @@ function App() {
   const getWorkout = (workoutId) =>
     WORKOUTS.find((w) => w.id === workoutId);
 
-  // Run the timer – we do NOT reset when session changes.
+  // Run the timer
   useEffect(() => {
     if (!isTimerRunning || session.length === 0) return;
 
@@ -124,6 +123,25 @@ function App() {
     sessionTotalSeconds - elapsedSeconds,
     0
   );
+
+  // Visual progress percentages (0 → 100)
+  const sessionProgressPercent =
+    sessionTotalSeconds === 0
+      ? 0
+      : Math.min(
+          100,
+          (elapsedSeconds / sessionTotalSeconds) * 100
+        );
+
+  const currentBlockProgressPercent =
+    currentBlockIndex === -1
+      ? 0
+      : Math.min(
+          100,
+          (secondsIntoCurrentBlock /
+            (session[currentBlockIndex].minutes * 60)) *
+            100
+        );
 
   // Stop timer when session is done
   useEffect(() => {
@@ -174,8 +192,8 @@ function App() {
     <div className="app">
       <h1>Workout Session Builder</h1>
       <p className="subtitle">
-        Drag exercises from the left into your session. Adjust their time to
-        build a custom workout.
+        Drag exercises from the left, or tap “Add to Session”, then adjust time
+        to build your workout.
       </p>
 
       <p className="total-time">
@@ -225,11 +243,11 @@ function App() {
                   <div className="exercise-name">{w.name}</div>
                   <div className="exercise-category">{cat.label}</div>
 
-                  {/* 👇 New: Tap "Add" for mobile */}
+                  {/* Mobile-friendly tap behavior */}
                   <button
                     type="button"
                     onClick={() => addWorkoutToSession(w.id)}
-                    style={{ marginTop: "4px", fontSize: "0.75rem" }}
+                    className="add-to-session-btn"
                   >
                     Add to Session
                   </button>
@@ -262,7 +280,6 @@ function App() {
               const workout = getWorkout(item.workoutId);
               const cat = CATEGORIES[workout.category];
 
-              // Keep blocks readable even at 1 minute
               const baseHeight = 50; // minimum height
               const pixelsPerMinute = 3; // extra height per minute
               const heightPx =
@@ -329,15 +346,23 @@ function App() {
               <div className="timer-time">
                 {formatTime(elapsedSeconds)}{" "}
                 <span className="timer-time-sub">
-                  / {formatTime(sessionTotalSeconds)}
+                  of {formatTime(sessionTotalSeconds)}
                 </span>
+              </div>
+
+              {/* Visual session progress bar */}
+              <div className="timer-progress">
+                <div
+                  className="timer-progress-inner"
+                  style={{ width: `${sessionProgressPercent}%` }}
+                />
               </div>
             </div>
 
             <div className="timer-details">
               <div>
                 <div className="timer-label">Current Workout</div>
-                <div className="timer-current">
+                <div className="timer-current timer-current-workout">
                   {currentBlockIndex === -1
                     ? "—"
                     : getWorkout(
@@ -351,6 +376,16 @@ function App() {
                   {currentBlockIndex === -1
                     ? "—"
                     : formatTime(secondsRemainingInBlock)}
+                </div>
+
+                {/* Visual progress for current block */}
+                <div className="timer-progress timer-progress-block">
+                  <div
+                    className="timer-progress-inner"
+                    style={{
+                      width: `${currentBlockProgressPercent}%`,
+                    }}
+                  />
                 </div>
               </div>
               <div>
