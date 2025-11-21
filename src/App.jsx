@@ -30,19 +30,9 @@ function App() {
       ? WORKOUTS
       : WORKOUTS.filter((w) => w.category === selectedCategory);
 
-  const handleDragStart = (workoutId) => {
-    setDraggedWorkoutId(workoutId);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedWorkoutId(null);
-  };
-
-  const handleTimelineDrop = (event) => {
-    event.preventDefault();
-    if (!draggedWorkoutId) return;
-
-    const workout = WORKOUTS.find((w) => w.id === draggedWorkoutId);
+  // ✅ Shared helper: add a workout to the session
+  const addWorkoutToSession = (workoutId) => {
+    const workout = WORKOUTS.find((w) => w.id === workoutId);
     if (!workout) return;
 
     const defaultMinutes = 5;
@@ -56,6 +46,22 @@ function App() {
     };
 
     setSession((prev) => [...prev, newItem]);
+  };
+
+  const handleDragStart = (workoutId) => {
+    setDraggedWorkoutId(workoutId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedWorkoutId(null);
+  };
+
+  const handleTimelineDrop = (event) => {
+    event.preventDefault();
+    if (!draggedWorkoutId) return;
+
+    // Use the same helper as the button click
+    addWorkoutToSession(draggedWorkoutId);
     setDraggedWorkoutId(null);
   };
 
@@ -218,6 +224,15 @@ function App() {
                 >
                   <div className="exercise-name">{w.name}</div>
                   <div className="exercise-category">{cat.label}</div>
+
+                  {/* 👇 New: Tap "Add" for mobile */}
+                  <button
+                    type="button"
+                    onClick={() => addWorkoutToSession(w.id)}
+                    style={{ marginTop: "4px", fontSize: "0.75rem" }}
+                  >
+                    Add to Session
+                  </button>
                 </div>
               );
             })}
@@ -238,8 +253,8 @@ function App() {
           >
             {session.length === 0 && (
               <p className="placeholder">
-                Drag workouts from the left and drop them here to start
-                building your session.
+                Drag workouts from the left, or tap “Add to Session”, to start
+                building your workout.
               </p>
             )}
 
