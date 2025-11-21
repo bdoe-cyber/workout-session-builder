@@ -14,7 +14,7 @@ function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showNextPopup, setShowNextPopup] = useState(false);
 
-  // Total minutes (for display)
+  // Total minutes just for display
   const totalMinutes = useMemo(
     () => session.reduce((sum, item) => sum + item.minutes, 0),
     [session]
@@ -24,13 +24,6 @@ function App() {
     () => session.reduce((sum, item) => sum + item.minutes * 60, 0),
     [session]
   );
-
-  // Overall progress through the session (0–100%), used for the yellow bar behind blocks
-  const progressPercent = useMemo(() => {
-    if (sessionTotalSeconds === 0) return 0;
-    const clamped = Math.min(elapsedSeconds, sessionTotalSeconds);
-    return (clamped / sessionTotalSeconds) * 100;
-  }, [elapsedSeconds, sessionTotalSeconds]);
 
   const filteredWorkouts =
     selectedCategory === "all"
@@ -88,7 +81,7 @@ function App() {
   const getWorkout = (workoutId) =>
     WORKOUTS.find((w) => w.id === workoutId);
 
-  // Run the timer (we do NOT reset on session changes)
+  // Run the timer – we do NOT reset when session changes.
   useEffect(() => {
     if (!isTimerRunning || session.length === 0) return;
 
@@ -99,7 +92,7 @@ function App() {
     return () => clearInterval(interval);
   }, [isTimerRunning, session.length]);
 
-  // Determine the current block (for labels & popup)
+  // Figure out current block, seconds into it, etc.
   let currentBlockIndex = -1;
   let secondsIntoCurrentBlock = 0;
 
@@ -126,7 +119,7 @@ function App() {
     0
   );
 
-  // Stop timer at end
+  // Stop timer when session is done
   useEffect(() => {
     if (!isTimerRunning) return;
     if (sessionTotalSeconds > 0 && elapsedSeconds >= sessionTotalSeconds) {
@@ -134,7 +127,7 @@ function App() {
     }
   }, [elapsedSeconds, isTimerRunning, sessionTotalSeconds]);
 
-  // Popup 1 minute before block ends
+  // Show popup 1 minute before current block ends
   useEffect(() => {
     if (!isTimerRunning) return;
     if (currentBlockIndex === -1) return;
@@ -156,7 +149,6 @@ function App() {
 
   const handleStart = () => {
     if (session.length === 0) return;
-    // Always start from the beginning
     setElapsedSeconds(0);
     setShowNextPopup(false);
     setIsTimerRunning(true);
@@ -176,7 +168,8 @@ function App() {
     <div className="app">
       <h1>Workout Session Builder</h1>
       <p className="subtitle">
-        Drag exercises from the left into your session. Adjust their time to build a custom workout.
+        Drag exercises from the left into your session. Adjust their time to
+        build a custom workout.
       </p>
 
       <p className="total-time">
@@ -231,160 +224,149 @@ function App() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: session + timer side by side */}
+        {/* RIGHT COLUMN: session with timer underneath */}
         <div className="column">
-          <div className="session-row">
-            {/* SESSION LIST ON THE LEFT */}
-            <div className="session-column">
-              <h2>Your Session</h2>
+          {/* SESSION LIST */}
+          <h2>Your Session</h2>
 
-              {/* wrapper lets us put the yellow bar behind the blocks */}
-              <div className="timeline-wrapper">
-                {/* yellow bar that grows from top down based on total progress */}
-                <div
-                  className="timeline-progress"
-                  style={{ height: `${progressPercent}%` }}
-                />
+          <div
+            className={`timeline ${
+              draggedWorkoutId ? "timeline-droppable" : ""
+            }`}
+            onDragOver={handleTimelineDragOver}
+            onDrop={handleTimelineDrop}
+          >
+            {session.length === 0 && (
+              <p className="placeholder">
+                Drag workouts from the left and drop them here to start
+                building your session.
+              </p>
+            )}
 
+            {session.map((item, index) => {
+              const workout = getWorkout(item.workoutId);
+              const cat = CATEGORIES[workout.category];
+
+              // Keep blocks readable even at 1 minute
+              const baseHeight = 50; // minimum height
+              const pixelsPerMinute = 3; // extra height per minute
+              const heightPx =
+                baseHeight + item.minutes * pixelsPerMinute;
+
+              const isCurrent = index === currentBlockIndex;
+
+              return (
                 <div
-                  className={`timeline ${
-                    draggedWorkoutId ? "timeline-droppable" : ""
+                  key={item.id}
+                  className={`timeline-item ${
+                    isCurrent ? "timeline-item-current" : ""
                   }`}
-                  onDragOver={handleTimelineDragOver}
-                  onDrop={handleTimelineDrop}
-                >
-                  {session.length === 0 && (
-                    <p className="placeholder">
-                      Drag workouts from the left and drop them here to start
-                      building your session.
-                    </p>
-                  )}
-
-                  {session.map((item, index) => {
-                    const workout = getWorkout(item.workoutId);
-                    const cat = CATEGORIES[workout.category];
-
-                    // Height is proportional ONLY to minutes
-                    const pixelsPerMinute = 10; // tweak if too big/small
-                    const heightPx = item.minutes * pixelsPerMinute;
-
-                    const isCurrent = index === currentBlockIndex;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={`timeline-item ${
-                          isCurrent ? "timeline-item-current" : ""
-                        }`}
-                        style={{
-                          height: `${heightPx}px`,
-                          backgroundColor: cat.color,
-                        }}
-                      >
-                        <div className="timeline-header">
-                          <span>{workout.name}</span>
-                          <button
-                            className="remove-btn"
-                            onClick={() => removeItem(item.id)}
-                          >
-                            ✕
-                          </button>
-                        </div>
-
-                        <div className="timeline-controls">
-                          <input
-                            type="range"
-                            min="1"
-                            max="60"
-                            value={item.minutes}
-                            onChange={(e) =>
-                              updateMinutes(item.id, e.target.value)
-                            }
-                          />
-                          <span className="minutes-label">
-                            {item.minutes} min
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {session.length > 0 && (
-                <button
-                  className="clear-session-btn"
-                  onClick={() => {
-                    handleReset();
-                    setSession([]);
+                  style={{
+                    height: `${heightPx}px`,
+                    backgroundColor: cat.color,
                   }}
                 >
-                  Clear Session
-                </button>
-              )}
+                  <div className="timeline-header">
+                    <span>{workout.name}</span>
+                    <button
+                      className="remove-btn"
+                      onClick={() => removeItem(item.id)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="timeline-controls">
+                    <input
+                      type="range"
+                      min="1"
+                      max="60"
+                      value={item.minutes}
+                      onChange={(e) =>
+                        updateMinutes(item.id, e.target.value)
+                      }
+                    />
+                    <span className="minutes-label">
+                      {item.minutes} min
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {session.length > 0 && (
+            <button
+              className="clear-session-btn"
+              onClick={() => {
+                handleReset();
+                setSession([]);
+              }}
+            >
+              Clear Session
+            </button>
+          )}
+
+          {/* TIMER PANEL UNDER SESSION */}
+          <div className="timer-panel">
+            <div className="timer-main">
+              <div className="timer-label">Session Time</div>
+              <div className="timer-time">
+                {formatTime(elapsedSeconds)}{" "}
+                <span className="timer-time-sub">
+                  / {formatTime(sessionTotalSeconds)}
+                </span>
+              </div>
             </div>
 
-            {/* TIMER PANEL ON THE RIGHT */}
-            <div className="timer-panel">
-              <div className="timer-main">
-                <div className="timer-label">Session Time</div>
-                <div className="timer-time">
-                  {formatTime(elapsedSeconds)}{" "}
-                  <span className="timer-time-sub">
-                    / {formatTime(sessionTotalSeconds)}
-                  </span>
+            <div className="timer-details">
+              <div>
+                <div className="timer-label">Current Workout</div>
+                <div className="timer-current">
+                  {currentBlockIndex === -1
+                    ? "—"
+                    : getWorkout(
+                        session[currentBlockIndex].workoutId
+                      )?.name}
                 </div>
               </div>
-
-              <div className="timer-details">
-                <div>
-                  <div className="timer-label">Current Workout</div>
-                  <div className="timer-current">
-                    {currentBlockIndex === -1
-                      ? "—"
-                      : getWorkout(
-                          session[currentBlockIndex].workoutId
-                        )?.name}
-                  </div>
-                </div>
-                <div>
-                  <div className="timer-label">Time left in block</div>
-                  <div className="timer-current">
-                    {currentBlockIndex === -1
-                      ? "—"
-                      : formatTime(secondsRemainingInBlock)}
-                  </div>
-                </div>
-                <div>
-                  <div className="timer-label">Time left in session</div>
-                  <div className="timer-current">
-                    {formatTime(totalRemainingSeconds)}
-                  </div>
+              <div>
+                <div className="timer-label">Time left in block</div>
+                <div className="timer-current">
+                  {currentBlockIndex === -1
+                    ? "—"
+                    : formatTime(secondsRemainingInBlock)}
                 </div>
               </div>
-
-              <div className="timer-buttons">
-                <button
-                  onClick={handleStart}
-                  disabled={session.length === 0 || isTimerRunning}
-                >
-                  Start
-                </button>
-                <button onClick={handlePause} disabled={!isTimerRunning}>
-                  Pause
-                </button>
-                <button
-                  onClick={handleReset}
-                  disabled={session.length === 0}
-                >
-                  Reset
-                </button>
+              <div>
+                <div className="timer-label">Time left in session</div>
+                <div className="timer-current">
+                  {formatTime(totalRemainingSeconds)}
+                </div>
               </div>
-
-              {showNextPopup && (
-                <div className="timer-popup">Next workout in 1 min</div>
-              )}
             </div>
+
+            <div className="timer-buttons">
+              <button
+                onClick={handleStart}
+                disabled={session.length === 0 || isTimerRunning}
+              >
+                Start
+              </button>
+              <button onClick={handlePause} disabled={!isTimerRunning}>
+                Pause
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={session.length === 0}
+              >
+                Reset
+              </button>
+            </div>
+
+            {showNextPopup && (
+              <div className="timer-popup">Next workout in 1 min</div>
+            )}
           </div>
         </div>
       </div>
